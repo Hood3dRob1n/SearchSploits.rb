@@ -1,0 +1,32 @@
+Exploit-DB Search Tool
+By: MrGreen
+
+Usage:./sploits.rb [OPTIONS]
+
+EX: ./sploits.rb -U
+EX: ./sploits.rb --update
+EX: ./sploits.rb -T webapps -S vBulletin
+EX: ./sploits.rb --search="Linux Kernel 2.6"
+EX: ./sploits.rb --author="Hood3dRob1n"
+EX: ./sploits.rb -A "JoinSe7en" -S "MyBB"
+EX: ./sploits.rb -T remote -S "SQL Injection"
+EX: ./sploits.rb -P linux -T local -S UDEV -O search_results.txt
+
+Options: 
+    -U, --update                     
+	Update Exploit-DB Working Archive to Latest & Greatest
+    -P, --platform <PLATFORM>        
+	System Platform Type, options include:
+sco, bsdi/x86, openbsd, lin/amd64, plan9, bsd/x86, openbsd/x86, hardware, bsd, unix, lin/x86-64, netbsd/x86, linux, solaris, ultrix, arm, php, solaris/sparc, osX, os-x/ppc, cfm, generator, freebsd/x86, bsd/ppc, minix, unixware, freebsd/x86-64, cgi, hp-ux, multiple, win64, tru64, jsp, novell, linux/mips, solaris/x86, aix, windows, linux/ppc, irix, QNX, lin/x86, win32, linux/sparc, freebsd, asp, sco/x86
+    -T, --type <TYPE>                
+	Type of Exploit, options include:
+	DoS, Remote, Local, WebApps, Papers or Shellcode
+    -A, --author <NAME>              
+	Run Lookup based on Author Username
+    -S, --search <SEARCH_TERM>       
+	Search Term to look for in Exploit-DB Working Archive
+    -O, --output <OUTPUT_FILE>       
+	Output File to Write Search Results to
+    -h, --help                       
+	Help Menu
+
