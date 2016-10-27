@@ -3,11 +3,11 @@
 # SearchSploit.rb
 # Search Tool for Exploit-DB Archive in Ruby
 # By: HR & MrGreen
+# Updated By: l50
 #
-# http://www.exploit-db.com/archive.tar.bz2
-#	17.2 MB (17,215,991 bytes) in size
-# svn co svn://devel.offensive-security.com/exploitdb #still working, idk?
-# To avoid script download have archive extracted to exploit-db/ directory (exploit-db/ => { platforms/ & files.scv })
+# https://github.com/offensive-security/exploit-database/archive/master.zip
+#	49 MB in size
+# To avoid script download have archive extracted to exploit-db/ directory (exploit-db/ => { platforms/ & files.csv })
 # BIG Thanks to the folks at Exploit-db for all the hard work they do and kick ass site they have!
 #
 # A few Pics: http://imgur.com/a/CL8xw#0
@@ -18,14 +18,15 @@
 # Video: http://youtu.be/9L7Uiv_ICHU
 #
 
-#Std Needed------------>
+# Std Libraries Required------------>
 require 'optparse'
 require 'net/http'
 require 'fileutils'
-#RubyGems Needed------------>
-require 'rubygems'
+require 'open-uri'
+# RubyGems Needed------------>
 require 'colorize'
-#Party Rox------------>
+require 'zip'
+# Party Rox------------>
 
 trap("SIGINT") {puts "\n\nWARNING! CTRL+C Detected, Disconnecting from DB and exiting program....".red; exit 666;}
 
@@ -98,7 +99,7 @@ begin
 		exit
 	end
 
-	#Set method value to var we can read anywhere
+	# Set method value to var we can read anywhere
 	@method = options[:method]
 
 rescue OptionParser::InvalidOption, OptionParser::MissingArgument
@@ -110,9 +111,9 @@ rescue OptionParser::InvalidOption, OptionParser::MissingArgument
 	exit 666;
 end
 
-#######################MEET & GREET SHIT START###################
+####################### MEET & GREET SHIT START ###################
 # Create working directory, get latest archive download, extract to set things up.....>
-#If we are under an Update request, we will remove existing and start fresh
+# If we are under an Update request, we will remove existing and start fresh
 if @method.to_i == 0
 	cls
 	puts
@@ -121,10 +122,11 @@ if @method.to_i == 0
 	puts
 	puts "RUNNING UPDATE".light_red + "!".white
 	puts "Removing existing content to perform clean update".light_green + "...".white
-	File.rename("exploit-db", "exploit-db_old") if File.exists?('exploit-db')
+	FileUtils.rm_rf('exploit-db_old') if File.directory?('exploit-db_old')
+	FileUtils.mv('exploit-db', 'exploit-db_old') if File.directory?('exploit-db')
 end
 
-#make dir if not exist
+# make dir if not exist
 if not File.exists?('exploit-db')
 	if @method.to_i == 0
 		puts
@@ -144,36 +146,53 @@ if not File.exists?('exploit-db')
 	Dir.mkdir('exploit-db')
 end
 
-#Jump into exploit-db directory and do our fetching and unarchiving, etc.....
-Dir.chdir("exploit-db") do 
-	#if archive dir is not there, we have not downloaded and extracted anything! Need to do so!
+# Jump into exploit-db directory and do our fetching and unarchiving, etc.....
+Dir.chdir("exploit-db") do
+	zip_file_location = "#{Dir.pwd}/master.zip"
+	zip_file_data = ''	
+	# if archive dir is not there, we have not downloaded and extracted anything! Need to do so!
 	if not File.exists?('platforms') or not File.exists?('files.csv')
 		puts
 		puts "You don't appear to be fully setup".light_red + "...".white			
 		puts "Fetching the latest exploit-db archive file, hang tight for a minute".light_green + ".....".white
 		############### DOWNLOAD ###############
-		Net::HTTP.start("www.exploit-db.com") do |http|
 			begin
-				file = open("archive.tar.bz2", 'wb')
-				http.request_get('/' + URI.encode("archive.tar.bz2"),  { 'User-Agent' => 'Mozilla/5.0 (Windows NT 6.1; rv:12.0) Gecko/20120403211507 Firefox/12.0' } ) do |response|
-					response.read_body do |segment|
-						file.write(segment)
-					end
+				zip_file_data = URI.parse('https://github.com/offensive-security/exploit-database/archive/master.zip').read
+
+				File.open(zip_file_location, 'wb') do |file|
+					file.write(zip_file_data)
 				end
 			rescue Timeout::Error => e
 				puts "Connection Timeout Error during archive download".light_red + "!".white
 				puts "Try again or set things up manually, sorry".light_red + ".......".white
-			ensure
-				file.close
 			end
-		end
 		puts
 		puts "Archive Download Complete".light_green + "!".white
 		puts
 		puts "Extracting everything, just another minute".light_green + ".....".white
 		############### EXTRACT ###############
 		# And this part makes it for linux users only, sorry windows folks. I will update later......just dont use update and you will be fine \_(._.)_/
-		`tar xvf archive.tar.bz2`
+		# May work fine now - Needs testing.
+		zip_file = Zip::File.open(zip_file_location)
+	
+		zip_file.each do |file|
+			file.extract
+		end
+	
+		origin = 'exploit-database-master'
+		dest = '.'
+		# Move files in directory introduced by getting zip from git repo into expected place
+		Dir.glob(File.join(origin, '*')).each do |file|
+			FileUtils.move file, File.join(dest, File.basename(file))
+		end
+		
+		# Clean up
+		FileUtils.rm_rf(origin)
+		# Remove tool that comes bundled
+		FileUtils.rm('searchsploit')
+		# Remove zip file
+		FileUtils.rm('master.zip')
+
 		begin
 			FileUtils.chmod 0755, 'files.csv' #override these files...
 		rescue Errno::ENOENT
@@ -181,23 +200,23 @@ Dir.chdir("exploit-db") do
 			puts
 			puts
 			puts "Extract failed, unable to extract full archive".light_red + "!".white
-			puts "You will need to try again later as its more than likely an issue with exploit-db download itself".light_red + ".....".white
+			puts "You will need to try again later as it\'s more than likely an issue with exploit-db download itself".light_red + ".....".white
 			puts "If you can get and create things manually you can re-run script fine".light_red + "....".white
 			puts "Sorry".light_red + ".................>".white
 			puts
 			puts
-			exit 666; #Bug out, we gots a crappy archive download (happens a lot based on my testing, maybe they dont like me?)
+			exit 666; # Bug out, we gots a crappy archive download (happens a lot based on my testing, maybe they dont like me?)
 		end
-		#chmod all them exploits so we can read and write when needed, chmod +x when you actuall need to run them :p
-		`find #{Dir.pwd} -type d -print0 | xargs -0 chmod 755` #search recursively from current dir and chmod as needed
-		`find #{Dir.pwd} -type f -print0 | xargs -0 chmod 666` #use xargs instead of exec option to avoid spawning more subprocesses
+		# chmod all them exploits so we can read and write when needed, chmod +x when you actuall need to run them :p
+		`find #{Dir.pwd} -type d -print0 | xargs -0 chmod 755` # search recursively from current dir and chmod as needed
+		`find #{Dir.pwd} -type f -print0 | xargs -0 chmod 666` # use xargs instead of exec option to avoid spawning more subprocesses
 		###################
 		puts
 
 		if @method.to_i == 0
 			puts "OK, Should be all updated now".light_green + "!".white
 			puts
-			exit; #Clean EXit @fter update is done!
+			exit; # Clean Exit after update is done!
 		else
 			puts "OK, Should be all setup to go now".light_green + "!".white
 			puts
@@ -210,26 +229,26 @@ Dir.chdir("exploit-db") do
 		puts "You appear to be setup already".light_green + "!".white
 		puts
 	end
-	########################MEET & GREET SHIT END####################
+	######################## MEET & GREET SHIT END ####################
 
-	#######################SEARCH SHIT START###################
+	####################### SEARCH SHIT START ###################
 	cls
 	puts "Searching Exploit-DB Local Archive".light_green + ".......".white
 	foo=[]
 	bar=[]
 	foobar=[]
-	@working_array=[] #active
+	@working_array=[] # active
 	platforms=[]     #1 - widest net
 	author=[]        #3 - start to narrow
 	search=[]        #5 - pluck what we want from whats left over
 	type=[]          #2 - next widest
 	port=[]          #4 - narrow some more
-	#start wide and narrow down as we go.......>
-	#I couldn't get CSV parsing to work proper so this is what everyone gets, start big and break it down using general rule of results size returned to weight the values as we loop down. In the end we really just using exagirated search option, not really sorting the way it should or as the options actually seem to indicate. I tried, still had fun with arrays on this one :p
+	# start wide and narrow down as we go.......>
+	# I couldn't get CSV parsing to work proper so this is what everyone gets, start big and break it down using general rule of results size returned to weight the values as we loop down. In the end we really just using exagirated search option, not really sorting the way it should or as the options actually seem to indicate. I tried, still had fun with arrays on this one :p
 	if not @platform.nil?
 		IO.foreach("files.csv") do |line|
-			line = line.unpack('C*').pack('U*') if !line.valid_encoding? #Thanks Stackoverflow :)
-			if line =~ /(\".+,.+\")/ #Deal with annoying commans within quotes as they shouldn't be used to split on (ahrg)
+			line = line.unpack('C*').pack('U*') if !line.valid_encoding? # Thanks Stackoverflow :)
+			if line =~ /(\".+,.+\")/ # Deal with annoying commans within quotes as they shouldn't be used to split on (ahrg)
 				coco = $1
 				loco = coco.sub(",", "")
 				foo = line.sub!("#{coco}","#{loco}").split(",")
@@ -378,15 +397,15 @@ Dir.chdir("exploit-db") do
 			@working_array = search
 		end
 	end
-	########################SEARCH SHIT END####################
-end #get out of the exploit-db directory and return to where we started
-########################FINAL RESULTS START####################
+	######################## SEARCH SHIT END ####################
+end # get out of the exploit-db directory and return to where we started
+######################## FINAL RESULTS START ####################
 sizer = @working_array.length
 puts
 puts "Found ".light_green + "#{sizer}".white + " Results".light_green + ":".white
-#turn our line into an array by splitting it, then use array options to chop up as needed to present
+# turn our line into an array by splitting it, then use array options to chop up as needed to present
 @working_array.each do |line|
-	if line =~ /(\".+,.+\")/ #Deal with annoying commans within quotes as they shouldn't be used to split on (ahrg)
+	if line =~ /(\".+,.+\")/ # Deal with annoying commans within quotes as they shouldn't be used to split on (ahrg)
 		coco = $1
 		loco = coco.sub(",", "")
 		foo = line.sub!("#{coco}","#{loco}").split(",")
@@ -422,8 +441,8 @@ puts "Found ".light_green + "#{sizer}".white + " Results".light_green + ":".whit
 	puts "Submit: ".light_red + "#{foo[3]}".white
 	puts
 end
-########################FINAL RESULTS END####################
+######################## FINAL RESULTS END ####################
 #
 # Greetz from MrGreen :)
 # Shouts to Z+ Community
-#EOF
+# EOF
